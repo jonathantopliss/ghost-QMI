@@ -180,9 +180,14 @@
   .member input.nm:focus{outline:2px solid var(--purple); background:#F6F4F8}
   .member .rev{font-size:11.5px; color:var(--muted)}
 
-  .pipe{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:6px}
+  .pipe{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-top:6px}
   .col{background:#ECE8F0; border:1px solid var(--line); border-radius:var(--rad); padding:12px; min-height:120px}
-  .col h3{font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); display:flex; justify-content:space-between; padding:2px 4px 10px}
+  .col h3{font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); display:flex; align-items:center; gap:6px; padding:2px 2px 10px}
+  .col h3 .stagename{flex:1; min-width:0; border:1px solid transparent; background:transparent; font:inherit; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; border-radius:6px; padding:3px 5px}
+  .col h3 .stagename:hover{background:#E3DCEC} .col h3 .stagename:focus{outline:none; background:#fff; border-color:var(--purple); color:var(--purple)}
+  .col h3 .num{font-weight:700; color:var(--purple); font-family:"Bricolage Grotesque"}
+  .col h3 .stagedel{border:0; background:transparent; color:var(--faint); font-size:16px; line-height:1; cursor:pointer; padding:2px 4px; border-radius:6px; opacity:0; transition:.15s}
+  .col:hover h3 .stagedel{opacity:1} .col h3 .stagedel:hover{background:var(--loss-soft); color:var(--loss)}
   .deal{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 12px; margin-bottom:9px; box-shadow:0 1px 2px rgba(0,0,0,.03)}
   .deal .c{font-weight:600; font-size:13px} .deal .d{color:var(--muted); font-size:11.5px; margin:2px 0 8px}
   .deal .ff{display:flex; justify-content:space-between; align-items:center}
@@ -260,6 +265,27 @@
     .main{padding-bottom:74px}
     .kpis{grid-template-columns:repeat(2,1fr)} .grid-2{grid-template-columns:1fr} .pipe{grid-template-columns:1fr 1fr}
     .view{padding:16px 14px 40px} .topbar{padding:14px}
+  }
+  @media(max-width:560px){
+    html,body{overflow-x:hidden}
+    .topbar{flex-wrap:wrap; gap:9px; padding:12px 14px}
+    .topbar h1{font-size:18px} .topbar .sub{font-size:11.5px}
+    .topbar .spacer{display:none} .saved{order:4} #addBtn{order:5; margin-left:auto}
+    .view{padding:14px 12px 90px} .main{padding-bottom:80px}
+    .dash-controls{gap:8px}
+    .dash-controls #period{width:100%} .dash-controls #period button{flex:1; padding:8px 6px; text-align:center}
+    .dash-controls #monthSel{flex:1; min-width:120px}
+    .dash-controls #basis{width:100%} .dash-controls #basis button{flex:1}
+    .dash-controls .lbl{width:100%; margin:2px 0 -2px}
+    .kpi .val{font-size:20px} .kpi{padding:13px}
+    .card-h{padding:14px 15px 4px} .card-h h2{font-size:14.5px} .card-h .hint{font-size:11px}
+    .flow{padding:8px 14px 6px}
+    .toolbar .filt{flex:1 1 44%; min-width:0} .toolbar .search{flex:1 1 100%}
+    .pipe{display:flex!important; overflow-x:auto; -webkit-overflow-scrolling:touch; gap:12px; scroll-snap-type:x proximity; padding-bottom:8px}
+    .pipe .col{min-width:82vw; scroll-snap-align:start}
+    .col h3 .stagedel{opacity:1}
+    .kpis[style]{grid-template-columns:1fr 1fr!important}
+    .nav button{min-width:48px; font-size:9px}
   }
   .gate{position:fixed;inset:0;background:linear-gradient(160deg,var(--purple),var(--purple-d));display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
   .gate-card{background:#fff;border-radius:18px;padding:34px 30px;width:340px;max-width:90vw;text-align:center;box-shadow:0 30px 80px -20px rgba(0,0,0,.55)}
@@ -382,7 +408,7 @@
 
     <!-- PIPELINE -->
     <section class="view" id="view-pipe" hidden>
-      <div class="toolbar"><div style="flex:1"></div><button class="btn btn-pri btn-sm" id="addDeal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add opportunity</button></div>
+      <div class="toolbar"><div style="flex:1"></div><button class="btn btn-ghost btn-sm" id="addStageBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add stage</button><button class="btn btn-pri btn-sm" id="addDeal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add opportunity</button></div>
       <div class="kpis" style="grid-template-columns:repeat(3,1fr)" id="pipeKpis"></div>
       <div class="pipe" id="pipeBoard" style="margin-top:18px"></div>
     </section>
@@ -401,6 +427,8 @@
         <select class="filt" id="lockSel"></select>
         <span class="lbl" style="font-size:12px;color:var(--muted);font-weight:500">Forecast cost of sales</span>
         <div style="display:flex;align-items:center;gap:4px"><input class="filt" id="cosPct" type="number" style="width:64px;text-align:right" value="27"><span style="color:var(--muted)">%</span></div>
+        <button class="btn btn-ghost btn-sm" id="fcZero">Forecast → £0</button>
+        <button class="btn btn-ghost btn-sm" id="fcTarget">Forecast → target</button>
         <div style="flex:1"></div>
         <span class="lbl" style="font-size:11.5px;color:var(--faint)">purple cells = editable</span>
       </div>
@@ -518,7 +546,7 @@ let MONTH_YEAR=[2026,2026,2026,2026,2026,2026,2026,2026,2026,2027,2027,2027];
 const MONTH_NUM=[4,5,6,7,8,9,10,11,12,1,2,3];
 const REV_TARGET=[43521,68658,50826,52532,65419,36155,39564,33714,21229,30844,26043,67936];
 let TARGET=[...REV_TARGET];     // editable target row
-let FORECAST=[...REV_TARGET];   // editable forecast revenue (future months)
+let FORECAST=Array(12).fill(0);   // editable forecast revenue (future months) — start blank
 let COS_PCT=0.27;               // forecast cost-of-sales assumption
 let INCENTIVE_PCT=0.05;         // staff incentive = 5% of net profit
 
@@ -553,7 +581,7 @@ let RECURRING=[
 ]; let recId=6;
 
 let PIPELINE=[]; let dealId=0;
-const STAGES=["Lead","Qualified","Proposal","Negotiation"];
+let STAGES=["Lead","Qualified","Proposal","Negotiation"];
 
 let ARCHIVES=[];
 
@@ -590,23 +618,31 @@ const weightedPipe=()=>PIPELINE.reduce((a,x)=>a+x.v*x.p,0);
 /* ---------- dashboard ---------- */
 const PLABEL={month:()=>`${MONTHS[selMonth]} ${MONTH_YEAR[selMonth]}`,quarter:()=>`Q${quarterOf(selMonth)+1} ${CURRENT_FY}`,year:()=>`Full year ${CURRENT_FY}`};
 function isForecastPeriod(){return periodMonths(PERIOD).every(mi=>mi>ACTUAL_THRU);}
+function periodHasForecast(){return periodMonths(PERIOD).some(mi=>mi>ACTUAL_THRU);}
+function periodActualInv(){return periodMonths(PERIOD).filter(mi=>mi<=ACTUAL_THRU).reduce((a,mi)=>a+mInv(mi),0);}
 function renderKPIs(){
-  const d=pnl(PERIOD), pct=d.tgt?d.rev/d.tgt:0, fc=isForecastPeriod();
-  const revLab=fc?"Forecast revenue":(BASIS==="invoiced"?"Invoiced revenue":"Revenue (all work)");
+  const d=pnl(PERIOD), pct=d.tgt?d.rev/d.tgt:0;
+  const fc=isForecastPeriod(), hasF=periodHasForecast(), mix=hasF&&!fc, proj=hasF, actInv=periodActualInv();
+  const revLab=fc?"Forecast revenue":(mix?"Projected revenue":(BASIS==="invoiced"?"Invoiced revenue":"Revenue (all work)"));
+  const revMeta=mix?`${gbp(actInv)} invoiced · rest forecast`:(fc?"your forecast figures":`${(pct*100).toFixed(0)}% of target`);
   const tiles=[
-    {lab:revLab,dot:"var(--purple)",val:gbp(d.rev),meta:fc?"based on target":`${(pct*100).toFixed(0)}% of target`,chip:fc?null:(pct>=1?"up":"down"),cv:fc?null:`${pct>=1?"+":""}${((pct-1)*100).toFixed(0)}%`},
+    {lab:revLab,dot:"var(--purple)",val:gbp(d.rev),meta:revMeta,chip:proj?null:(pct>=1?"up":"down"),cv:proj?null:`${pct>=1?"+":""}${((pct-1)*100).toFixed(0)}%`},
     {lab:"Work in progress",dot:"var(--signal)",val:gbp(d.wip),meta:d.wip>0?"quoted / live · not invoiced":"nothing outstanding"},
-    {lab:"Gross profit",dot:"var(--money)",val:gbp(d.gp),meta:`${(d.gm*100).toFixed(0)}% margin · after goods`},
+    {lab:proj?"Projected gross profit":"Gross profit",dot:"var(--money)",val:gbp(d.gp),meta:`${(d.gm*100).toFixed(0)}% margin · after goods`},
     {lab:"Studio cost (break-even)",dot:"var(--over)",val:gbp(d.oh),meta:"salaries · rent · subs"},
-    {lab:"Net profit",dot:d.net>=0?"var(--money)":"var(--loss)",val:gbp(d.net),neg:d.net<0,meta:"after covering the studio",chip:d.net>=0?"up":"down",cv:d.net>=0?"profit":"loss",hot:d.net<0},
+    {lab:proj?"Projected net profit":"Net profit",dot:d.net>=0?"var(--money)":"var(--loss)",val:gbp(d.net),neg:d.net<0,meta:proj?"projected · after studio":"after covering the studio",chip:d.net>=0?"up":"down",cv:d.net>=0?"profit":"loss",hot:d.net<0},
     {lab:"Pipeline",dot:"var(--signal)",val:gbp(weightedPipe()),meta:"weighted value"},
   ];
   $("#kpis").innerHTML=tiles.map(t=>`<div class="kpi${t.hot?" hot":""}"><div class="lab"><span class="dot" style="background:${t.dot}"></span>${t.lab}</div><div class="val num${t.neg?" neg":""}">${t.val}</div><div class="meta">${t.chip?`<span class="chip ${t.chip}">${t.cv}</span>`:""}${t.meta}</div></div>`).join("");
 }
 function renderVerdict(){
-  const d=pnl(PERIOD), v=$("#verdict");
-  if(isForecastPeriod()){v.innerHTML="";return;}
-  const label=PLABEL[PERIOD]();
+  const d=pnl(PERIOD), v=$("#verdict"), label=PLABEL[PERIOD]();
+  if(periodHasForecast()){
+    const actInv=periodActualInv(), cls=d.net>=0?"good":"bad";
+    const icon=d.net>=0?'<path d="M20 6L9 17l-5-5"/>':'<path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>';
+    v.innerHTML=`<div class="verdict ${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17">${icon}</svg><span><b>${label} — projected ${d.net>=0?"profit":"loss"} of ${gbp(d.net)}.</b> ${gbp(actInv)} actually invoiced so far; the rest is forecast. Against £${Math.round(d.oh/1000)}k of studio costs${d.cos>0?` and ${gbp(d.cos)} of goods`:""}, that's where the year is heading on current figures.</span></div>`;
+    return;
+  }
   if(d.net>=0) v.innerHTML=`<div class="verdict good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M20 6L9 17l-5-5"/></svg><span><b>${label}: ${gbp(d.net)} real profit.</b> Revenue covered the £${Math.round(d.oh/1000)}k it costs to run the studio, with room to spare.</span></div>`;
   else v.innerHTML=`<div class="verdict bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span><b>${label}: ${gbp(d.net)} — a loss.</b> ${BASIS==="invoiced"?`Only ${gbp(d.rev)} was actually invoiced`:`Even counting all live work (${gbp(d.rev)})`}, which didn't cover £${Math.round(d.oh/1000)}k of studio costs${d.cos>0?` plus ${gbp(d.cos)} of bought-in goods`:""}.</span></div>`;
 }
@@ -618,7 +654,7 @@ function renderFlow(){
   else segs.push({cls:"seg-net",n:gbpK(d.net),t:"Net profit",b:d.net/base*100});
   const track=$("#flowTrack"); track.innerHTML="";
   segs.forEach(s=>{const el=document.createElement("div"); el.className="flow-seg "+s.cls; el.style.flexBasis="0%"; el.innerHTML=`<div class="in"><div class="n">${s.n}</div><div class="t">${s.t}</div></div>`; track.appendChild(el); requestAnimationFrame(()=>requestAnimationFrame(()=>el.style.flexBasis=s.b+"%"));});
-  $("#flowLegend").innerHTML=`<div class="lg"><span class="sw" style="background:var(--purple)"></span>${BASIS==="invoiced"?"Invoiced":"Revenue"} <b>${gbp(d.rev)}</b></div><div class="lg"><span class="sw" style="background:var(--signal)"></span>Goods <b>${gbp(d.cos)}</b></div><div class="lg"><span class="sw" style="background:var(--over)"></span>Studio cost <b>${gbp(d.oh)}</b></div><div class="lg"><span class="sw" style="background:${loss?"var(--loss)":"var(--money)"}"></span>${loss?"Shortfall":"Net profit"} <b>${gbp(d.net)}</b></div>`;
+  $("#flowLegend").innerHTML=`<div class="lg"><span class="sw" style="background:var(--purple)"></span>${periodHasForecast()?"Projected":(BASIS==="invoiced"?"Invoiced":"Revenue")} <b>${gbp(d.rev)}</b></div><div class="lg"><span class="sw" style="background:var(--signal)"></span>Goods <b>${gbp(d.cos)}</b></div><div class="lg"><span class="sw" style="background:var(--over)"></span>Studio cost <b>${gbp(d.oh)}</b></div><div class="lg"><span class="sw" style="background:${loss?"var(--loss)":"var(--money)"}"></span>${loss?"Shortfall":"Net profit"} <b>${gbp(d.net)}</b></div>`;
 }
 function renderChart(){
   const wrap=$("#bars"); wrap.innerHTML="";
@@ -836,7 +872,7 @@ function renderPipe(){
   const tot=PIPELINE.reduce((a,x)=>a+x.v,0),wtot=weightedPipe(),best=PIPELINE.filter(x=>x.p>=.5).reduce((a,x)=>a+x.v,0);
   $("#pipeKpis").innerHTML=`<div class="kpi"><div class="lab"><span class="dot" style="background:var(--purple)"></span>Total pipeline</div><div class="val num">${gbp(tot)}</div><div class="meta">${PIPELINE.length} open</div></div><div class="kpi"><div class="lab"><span class="dot" style="background:var(--signal)"></span>Weighted value</div><div class="val num">${gbp(wtot)}</div><div class="meta">by probability</div></div><div class="kpi"><div class="lab"><span class="dot" style="background:var(--money)"></span>Likely (≥50%)</div><div class="val num">${gbp(best)}</div><div class="meta">strong chance</div></div>`;
   $("#pipeBoard").innerHTML=STAGES.map((stg,si)=>{const ds=PIPELINE.filter(d=>d.stage===stg),sv=ds.reduce((a,d)=>a+d.v,0);
-    return `<div class="col" data-stage="${stg}"><h3>${stg}<span class="num">${gbpK(sv)}</span></h3>${ds.map(d=>dealCard(d,si)).join("")||'<div style="color:var(--faint);font-size:12px;padding:6px 4px">Drop a deal here</div>'}</div>`;}).join("");
+    return `<div class="col" data-stage="${(stg||"").replace(/"/g,"&quot;")}"><h3><input class="stagename" value="${(stg||"").replace(/"/g,"&quot;")}" onchange="renameStage(${si},this.value)" title="Click to rename this stage"><span class="num">${gbpK(sv)}</span><button class="stagedel" title="Delete stage" onclick="delStage(${si})">×</button></h3>${ds.map(d=>dealCard(d,si)).join("")||'<div style="color:var(--faint);font-size:12px;padding:6px 4px">Drop a deal here</div>'}</div>`;}).join("");
   wireDrag();
   schedulePersist();
 }
@@ -844,7 +880,26 @@ function editDeal(id,f,v){const d=PIPELINE.find(x=>x.id===id);if(!d)return;d[f]=
 function moveDeal(id,dir){const d=PIPELINE.find(x=>x.id===id);if(!d)return;const i=STAGES.indexOf(d.stage)+dir;if(i<0||i>=STAGES.length)return;d.stage=STAGES[i];renderPipe();toast("Moved to "+d.stage);}
 function delDeal(id){const dl=PIPELINE.find(x=>x.id===id);PIPELINE=PIPELINE.filter(x=>x.id!==id);renderPipe();refreshDash();toast("Opportunity removed",{label:"Undo",fn:()=>{if(dl)PIPELINE.push(dl);renderPipe();refreshDash();toast("Restored");}});}
 function winDeal(id){const d=PIPELINE.find(x=>x.id===id);if(!d)return;if(!CLIENTS.includes(d.c)&&d.c)CLIENTS.push(d.c);txId++;TX.push({id:txId,type:"Income",date:dstr(Math.min(Math.max(selMonth,0),11),15),proj:"NEW",client:d.c,stream:"Studio",handler:d.h,cat:"Other",desc:d.d,amt:d.v,status:"Quoted"});PIPELINE=PIPELINE.filter(x=>x.id!==id);refreshAll();$$("#nav button").forEach(x=>x.classList.toggle("on",x.dataset.v==="jobs"));$$(".view").forEach(v=>v.hidden=v.id!=="view-jobs");$("#pgTitle").textContent="Jobs";toast(`${d.c} won → added as a job (set its project number)`);}
-function addDeal(){dealId++;PIPELINE.push({id:dealId,c:"New opportunity",d:"Describe the work",v:5000,p:.3,stage:"Lead",h:TEAM[0].name});renderPipe();toast("Opportunity added — edit it inline");}
+function addDeal(){dealId++;PIPELINE.push({id:dealId,c:"New opportunity",d:"Describe the work",v:5000,p:.3,stage:STAGES[0],h:TEAM[0].name});renderPipe();toast("Opportunity added — edit it inline");}
+function renameStage(si,v){
+  v=(v||"").trim();const old=STAGES[si];
+  if(!v||v===old){renderPipe();return;}
+  if(STAGES.some((s,i)=>i!==si&&s.toLowerCase()===v.toLowerCase())){toast("That stage name is already used");renderPipe();return;}
+  PIPELINE.forEach(d=>{if(d.stage===old)d.stage=v;});
+  STAGES[si]=v;renderPipe();refreshDash();toast("Stage renamed");
+}
+function addStage(){
+  let n="New stage",i=2;while(STAGES.some(s=>s.toLowerCase()===n.toLowerCase())){n="New stage "+i++;}
+  STAGES.push(n);renderPipe();toast("Stage added — click its name to rename");
+}
+function delStage(si){
+  if(STAGES.length<=1){toast("Keep at least one stage");return;}
+  const old=STAGES[si],count=PIPELINE.filter(d=>d.stage===old).length;
+  const remaining=STAGES.filter((_,i)=>i!==si),target=remaining[Math.max(0,si-1)]||remaining[0];
+  if(count&&typeof window!=="undefined"&&window.confirm&&!window.confirm(`"${old}" has ${count} opportunit${count>1?"ies":"y"}. Delete this stage and move them to "${target}"?`))return;
+  PIPELINE.forEach(d=>{if(d.stage===old)d.stage=target;});
+  STAGES=remaining;renderPipe();refreshDash();toast("Stage deleted");
+}
 let dragId=null;
 function wireDrag(){
   $$("#pipeBoard .deal").forEach(el=>{
@@ -905,8 +960,10 @@ $("#gSearch").addEventListener("input",e=>{GF.q=e.target.value;renderGoods();});
 $("#gMonth").addEventListener("change",e=>{GF.month=e.target.value;renderGoods();});
 $("#oSearch").addEventListener("input",e=>{OF.q=e.target.value;renderOver();});
 $("#oMonth").addEventListener("change",e=>{OF.month=e.target.value;renderOver();});
-$("#addMember").onclick=addMember; $("#addRec").onclick=addRec; $("#addDeal").onclick=addDeal;
+$("#addMember").onclick=addMember; $("#addRec").onclick=addRec; $("#addDeal").onclick=addDeal; $("#addStageBtn").onclick=addStage;
 $("#lockSel").addEventListener("change",e=>{ACTUAL_THRU=+e.target.value;selMonth=Math.max(0,Math.min(11,ACTUAL_THRU>=0?ACTUAL_THRU:0));$("#monthSel").value=selMonth;renderPNL();refreshDash();renderArch();toast("Actuals boundary moved");});
+$("#fcZero").onclick=()=>{for(let i=0;i<12;i++)FORECAST[i]=0;renderPNL();refreshDash();toast("Forecast cleared to £0");};
+$("#fcTarget").onclick=()=>{for(let i=0;i<12;i++)FORECAST[i]=TARGET[i];renderPNL();refreshDash();toast("Forecast set to target");};
 $("#cosPct").addEventListener("change",e=>{COS_PCT=Math.max(0,(+e.target.value||0))/100;renderPNL();refreshDash();toast("Forecast cost of sales updated");});
 $("#incPct").addEventListener("change",e=>{INCENTIVE_PCT=Math.max(0,(+e.target.value||0))/100;renderIncentive();schedulePersist();toast("Incentive share updated");});
 $("#snapYear").onclick=snapYear; $("#rollYear").onclick=rollYear;
@@ -1127,7 +1184,7 @@ const STATE_ID="ghost";
 const CLOUD=!!(SB_CONFIG.url&&SB_CONFIG.key&&typeof window!=="undefined"&&window.supabase);
 let SB=null, cloudReady=false, clientId=Math.random().toString(36).slice(2), pendingRemote=null, lastSyncJSON="";
 
-function snapshot(){return {v:3,TX,txId,TEAM,CLIENTS,RECURRING,recId,PIPELINE,dealId,ARCHIVES,TARGET,FORECAST,COS_PCT,INCENTIVE_PCT,ACTUAL_THRU,selMonth,BASIS,PERIOD,CURRENT_FY,MONTH_YEAR,SHEET_URL};}
+function snapshot(){return {v:3,TX,txId,TEAM,CLIENTS,RECURRING,recId,PIPELINE,dealId,STAGES,ARCHIVES,TARGET,FORECAST,COS_PCT,INCENTIVE_PCT,ACTUAL_THRU,selMonth,BASIS,PERIOD,CURRENT_FY,MONTH_YEAR,SHEET_URL};}
 function flashSaved(ok,label){
   const p=$("#savedPill");if(!p)return;
   if(ok){p.classList.remove("off");$("#savedTxt").textContent=label||(CLOUD?"Synced":"Saved");p.classList.add("pulse");setTimeout(()=>p.classList.remove("pulse"),250);}
@@ -1136,7 +1193,7 @@ function flashSaved(ok,label){
 function applyState(s){
   if(!s||s.v!==3)return false;
   TX=s.TX||[];txId=s.txId||0;TEAM=s.TEAM||TEAM;CLIENTS=s.CLIENTS||[];RECURRING=s.RECURRING||RECURRING;recId=s.recId||recId;
-  PIPELINE=s.PIPELINE||[];dealId=s.dealId||dealId;ARCHIVES=s.ARCHIVES||[];TARGET=s.TARGET||TARGET;FORECAST=s.FORECAST||FORECAST;
+  PIPELINE=s.PIPELINE||[];dealId=s.dealId||dealId;STAGES=(s.STAGES&&s.STAGES.length)?s.STAGES:STAGES;ARCHIVES=s.ARCHIVES||[];TARGET=s.TARGET||TARGET;FORECAST=s.FORECAST||FORECAST;
   COS_PCT=(s.COS_PCT??COS_PCT);INCENTIVE_PCT=(s.INCENTIVE_PCT??INCENTIVE_PCT);ACTUAL_THRU=(s.ACTUAL_THRU??ACTUAL_THRU);selMonth=(s.selMonth??selMonth);BASIS=s.BASIS||BASIS;PERIOD=s.PERIOD||PERIOD;
   CURRENT_FY=s.CURRENT_FY||CURRENT_FY;MONTH_YEAR=s.MONTH_YEAR||MONTH_YEAR;SHEET_URL=s.SHEET_URL||"";
   return true;
