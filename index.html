@@ -961,7 +961,7 @@ const IMP_SOURCES={
     preset:["amount","date","proj","client","desc","handler","contact"]},
   blocwork:{label:"Blocwork MJB",type:"Income",stream:"Studio",defHandler:"JT",
     fields:[["date","Date"],["client","Client"],["proj","Job No"],["desc","Title / description"],["amount","Cost £"],["handler","Account handler"],["status","Status"]],
-    preset:["date","client","contact","skip","proj","desc","amount"]},
+    preset:["date","client","contact","proj","desc","amount"]},
   goods:{label:"Brought-in goods",type:"Goods",stream:"Studio",
     fields:[["date","Date"],["proj","Ref / Job No"],["client","Client"],["desc","Description"],["handler","Handler"],["amount","Cost £"]],
     preset:["date","client","contact","proj","desc","amount"]},
@@ -992,6 +992,13 @@ function splitDelim(text){
   row.push(cur); rows.push(row);
   return rows.filter(r=>r.some(c=>c.trim()!==""));
 }
+function dropEmptyCols(rows){
+  if(!rows.length)return rows;
+  const w=Math.max(...rows.map(r=>r.length));
+  const keep=[];
+  for(let c=0;c<w;c++){if(rows.some(r=>((r[c]||"").trim())!==""))keep.push(c);}
+  return rows.map(r=>keep.map(c=>(r[c]!==undefined?r[c]:"")));
+}
 function guessCol(H,cands,used){
   for(const c of cands){const i=H.findIndex((h,ix)=>!used.has(ix)&&h===c);if(i>=0)return i;}
   for(const c of cands){const i=H.findIndex((h,ix)=>!used.has(ix)&&h.includes(c));if(i>=0)return i;}
@@ -999,7 +1006,7 @@ function guessCol(H,cands,used){
 }
 function looksLikeDate(s){return /^\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\s*$/.test(s||"");}
 function looksLikeNum(s){return /^\s*£?\s*-?\d[\d,]*(\.\d+)?\s*$/.test((s||"").trim());}
-function isProbablyData(row){return row.some(c=>looksLikeDate(c))||row.some(c=>/£/.test(c||""))||row.some(c=>looksLikeNum(c));}
+function isProbablyData(row){return row.some(c=>looksLikeDate(c))||row.some(c=>looksLikeNum(c));}
 function detectMap(){
   const H=IMP.headers.map(h=>(h||"").toLowerCase().trim()),used=new Set(),m={};
   const order=["date","status","handler","client","proj","desc","extcost","stream","cat","amount"];
@@ -1027,7 +1034,7 @@ function setImpSource(s){IMP.source=s;$$("#impTarget button").forEach(b=>b.class
 function impShowError(msg){$("#impError").innerHTML=msg;$("#impError").hidden=false;}
 function impParse(text){
   IMP.raw=text;
-  const rows=splitDelim(text);
+  const rows=dropEmptyCols(splitDelim(text));
   if(!rows.length){impShowError("No rows found — paste or choose some data first.");return;}
   if(!IMP.headerManual&&IMP.mode!=="link"){IMP.noHeader=isProbablyData(rows[0]);if($("#impHasHeader"))$("#impHasHeader").checked=!IMP.noHeader;impPresetNote();}
   if(IMP.noHeader){
@@ -1110,15 +1117,15 @@ let LOADED=false, canSave=true, saveT=null;
 /* ===== SHARING CONFIG — paste your two Supabase values to switch on the shared online version =====
    Leave url and key blank to run local-only (saves to this browser only).            */
 const SB_CONFIG={
-  url:   "https://npsthshzuxyisiduiylv.supabase.co",                       // <-- paste your Supabase Project URL here
-  key:   "sb_publishable_ShjcHt0c1M1g9weJKw4YWg_q7ag-Lxu",                       // <-- paste your publishable (anon) key here
+  url:   "https://npsthshzuxyisiduiylv.supabase.co",
+  key:   "sb_publishable_ShjcHt0c1M1g9weJKw4YWg_q7ag-Lxu",
   email: "team@ghost-finance.app"  // leave as-is (the shared sign-in)
 };
 /* ================================================================================ */
 if(typeof window!=="undefined"&&window.__SB)Object.assign(SB_CONFIG,window.__SB);
 const STATE_ID="ghost";
 const CLOUD=!!(SB_CONFIG.url&&SB_CONFIG.key&&typeof window!=="undefined"&&window.supabase);
-let SB=null, cloudReady=false, clientId=Math.random().toString(36).slice(2), pendingRemote=null;
+let SB=null, cloudReady=false, clientId=Math.random().toString(36).slice(2), pendingRemote=null, lastSyncJSON="";
 
 function snapshot(){return {v:3,TX,txId,TEAM,CLIENTS,RECURRING,recId,PIPELINE,dealId,ARCHIVES,TARGET,FORECAST,COS_PCT,INCENTIVE_PCT,ACTUAL_THRU,selMonth,BASIS,PERIOD,CURRENT_FY,MONTH_YEAR,SHEET_URL};}
 function flashSaved(ok,label){
@@ -1141,8 +1148,10 @@ function loadStateLocal(){
 }
 function doPersist(){
   if(CLOUD&&cloudReady&&SB){
+    const js=JSON.stringify(snapshot());
+    if(js===lastSyncJSON)return;            // nothing actually changed — don't write/echo
     SB.from("app_state").upsert({id:STATE_ID,data:snapshot(),updated_at:new Date().toISOString(),editor:clientId})
-      .then(({error})=>{if(error){canSave=false;flashSaved(false);}else{canSave=true;flashSaved(true,"Synced");}})
+      .then(({error})=>{if(error){canSave=false;flashSaved(false);}else{lastSyncJSON=js;canSave=true;flashSaved(true,"Synced");}})
       .catch(()=>{canSave=false;flashSaved(false);});
     return;
   }
@@ -1167,7 +1176,9 @@ function resetData(){
 function applyRemote(rowData){
   const ae=document.activeElement;
   if(ae&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)){pendingRemote=rowData;return;}
-  applyState(rowData);buildFilters();refreshAll();syncControls();toast("Updated by a teammate");
+  applyState(rowData);buildFilters();refreshAll();syncControls();
+  lastSyncJSON=JSON.stringify(snapshot());   // we already hold this exact state — don't echo it back
+  toast("Updated by a teammate");
 }
 function cloudSubscribe(){
   try{
@@ -1176,16 +1187,17 @@ function cloudSubscribe(){
         const row=p.new;if(!row||row.editor===clientId||!row.data)return;applyRemote(row.data);
       }).subscribe();
   }catch(e){}
-  document.addEventListener("focusout",()=>{if(pendingRemote){const d=pendingRemote;pendingRemote=null;applyState(d);buildFilters();refreshAll();syncControls();}});
+  document.addEventListener("focusout",()=>{if(pendingRemote){const d=pendingRemote;pendingRemote=null;applyState(d);buildFilters();refreshAll();syncControls();lastSyncJSON=JSON.stringify(snapshot());}});
 }
 async function cloudStart(){
-  LOADED=false;
+  LOADED=false;let had=false;
   try{const {data,error}=await SB.from("app_state").select("data").eq("id",STATE_ID).maybeSingle();
-    if(!error&&data&&data.data&&data.data.v===3)applyState(data.data);
+    if(!error&&data&&data.data&&data.data.v===3){applyState(data.data);had=true;}
   }catch(e){}
   buildFilters();refreshAll();syncControls();
   cloudReady=true;LOADED=true;
-  doPersist();           // make sure a row exists
+  if(had)lastSyncJSON=JSON.stringify(snapshot());   // adopt the loaded state; suppress immediate re-save
+  doPersist();           // writes a seed row only if nothing was there
   cloudSubscribe();
   flashSaved(true,"Synced");
 }
