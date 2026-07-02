@@ -264,14 +264,19 @@
   .banner{background:var(--purple-soft); border:1px solid #DCCDE6; color:var(--purple); border-radius:11px; padding:10px 14px; font-size:12.5px; margin-bottom:18px; display:flex; gap:9px; align-items:center}
   .banner b{font-weight:600}
 
+  .hamb{display:none; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--purple); font-size:20px; flex:none}
+  .navscrim{display:none; position:fixed; inset:0; background:rgba(20,10,28,.45); z-index:55; opacity:0; pointer-events:none; transition:opacity .25s}
   @media(max-width:920px){
     .app{grid-template-columns:1fr}
-    .rail{position:fixed; bottom:0; top:auto; height:auto; width:100%; flex-direction:row; padding:8px; z-index:30; gap:2px; overflow-x:auto}
-    .brand,.rail-foot,.nav .grp{display:none}
-    .nav{flex-direction:row; width:100%; gap:2px}
-    .nav button{flex-direction:column; gap:3px; font-size:9.5px; padding:6px 4px; min-width:52px}
+    .rail{position:fixed; left:0; top:0; height:100dvh; width:262px; max-width:82vw; transform:translateX(-100%); transition:transform .26s cubic-bezier(.4,0,.1,1); z-index:60; padding:18px 14px; box-shadow:8px 0 34px -12px rgba(0,0,0,.5); overflow-y:auto}
+    .rail.open{transform:translateX(0)}
+    .brand,.rail-foot,.nav .grp{display:block}
+    .nav{flex-direction:column; width:auto; gap:1px; overflow:visible}
+    .nav button{flex-direction:row; gap:11px; font-size:13.5px; padding:11px 12px; min-width:0; justify-content:flex-start}
     .nav button span{white-space:nowrap}
-    .main{padding-bottom:74px}
+    .main{padding-bottom:24px}
+    .hamb{display:inline-flex} .navscrim{display:block}
+    .navscrim.on{opacity:1; pointer-events:auto}
     .kpis{grid-template-columns:repeat(2,1fr)} .grid-2{grid-template-columns:1fr} .pipe{grid-template-columns:1fr 1fr}
     .view{padding:16px 14px 40px} .topbar{padding:14px}
   }
@@ -294,7 +299,7 @@
     .pipe .col{min-width:82vw; scroll-snap-align:start}
     .col h3 .stagedel{opacity:1}
     .kpis[style]{grid-template-columns:1fr 1fr!important}
-    .nav button{min-width:48px; font-size:9px}
+    .view{padding:14px 12px 40px} .main{padding-bottom:24px}
   }
   .gate{position:fixed;inset:0;background:linear-gradient(160deg,var(--purple),var(--purple-d));display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
   .gate-card{background:#fff;border-radius:18px;padding:34px 30px;width:340px;max-width:90vw;text-align:center;box-shadow:0 30px 80px -20px rgba(0,0,0,.55)}
@@ -330,6 +335,7 @@
 
   <div class="main">
     <header class="topbar">
+      <button class="hamb" id="hambBtn" aria-label="Open menu">☰</button>
       <div><h1 id="pgTitle">Dashboard</h1><div class="sub" id="pgSub">Financial year 2026/27</div></div>
       <div class="spacer"></div>
       <span class="saved" id="savedPill"><span class="dot"></span><span id="savedTxt">Saved</span></span>
@@ -472,6 +478,7 @@
 </div>
 
 <div class="scrim" id="scrim"></div>
+<div class="navscrim" id="navScrim"></div>
 <div class="gate" id="gate" style="display:none">
   <div class="gate-card">
     <div class="mark">ghost</div>
@@ -970,7 +977,10 @@ function refreshDash(){renderKPIs();renderVerdict();renderFlow();renderChart();r
 function refreshAll(){buildFilters();refreshDash();renderJobs();renderGoods();renderOver();renderTeam();renderPipe();renderArch();schedulePersist();}
 
 const TITLES={dash:["Dashboard",()=>"Financial year "+CURRENT_FY],jobs:["Jobs",()=>"Every job — filter, search, edit"],goods:["Brought-in goods",()=>"Costs tied to delivering jobs"],over:["Overheads & spends",()=>"One-off running costs"],rec:["Recurring costs",()=>"Fixed monthly — your break-even"],pipe:["Pipeline",()=>"Weighted open opportunities"],team:["Team",()=>"Account handlers — editable"],pnl:["Profit & loss",()=>"Month by month, invoiced basis"],incent:["Staff incentive",()=>"Share of profit for the team"],arch:["Archive",()=>"Year-on-year invoiced revenue"]};
-$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;VIEW=b.dataset.v;$$("#nav button").forEach(x=>x.classList.toggle("on",x===b));$$(".view").forEach(v=>v.hidden=true);$("#view-"+VIEW).hidden=false;$("#pgTitle").textContent=TITLES[VIEW][0];$("#pgSub").textContent=TITLES[VIEW][1]();});
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;VIEW=b.dataset.v;$$("#nav button").forEach(x=>x.classList.toggle("on",x===b));$$(".view").forEach(v=>v.hidden=true);$("#view-"+VIEW).hidden=false;$("#pgTitle").textContent=TITLES[VIEW][0];$("#pgSub").textContent=TITLES[VIEW][1]();closeNav();});
+function openNav(){const r=$(".rail");if(r)r.classList.add("open");const s=$("#navScrim");if(s)s.classList.add("on");}
+function closeNav(){const r=$(".rail");if(r)r.classList.remove("open");const s=$("#navScrim");if(s)s.classList.remove("on");}
+{const hb=$("#hambBtn");if(hb)hb.onclick=openNav;const ns=$("#navScrim");if(ns)ns.onclick=closeNav;}
 $("#period").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;PERIOD=b.dataset.p;$$("#period button").forEach(x=>x.classList.toggle("on",x===b));fillMonthSel();refreshDash();});
 $("#monthSel").addEventListener("change",e=>{selMonth=+e.target.value;refreshDash();});
 $("#basis").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;BASIS=b.dataset.b;$$("#basis button").forEach(x=>x.classList.toggle("on",x===b));refreshDash();});
