@@ -366,11 +366,11 @@
         <div class="card"><div class="card-h"><h2>Revenue vs target</h2><span class="hint">dashed = target · dotted = break-even · click a bar</span></div>
           <div class="chart"><div class="bars" id="bars"></div>
           <div style="display:flex;justify-content:space-between;padding:8px 12px 0"><div class="blab" id="chTotal"></div><div class="blab" id="chTgt"></div></div></div></div>
-        <div class="card"><div class="card-h"><h2>Team leaderboard</h2><span class="hint">invoiced</span></div><div class="rows" id="lbMini"></div></div>
+        <div class="card"><div class="card-h"><h2>Team leaderboard</h2><span class="hint" id="lbHint">invoiced</span></div><div class="rows" id="lbMini"></div></div>
       </div>
       <div class="grid-2">
-        <div class="card"><div class="card-h"><h2>Revenue by stream</h2></div><div class="rows" id="streams"></div></div>
-        <div class="card"><div class="card-h"><h2>Top clients</h2><span class="hint">invoiced YTD</span></div><div class="rows" id="topClients"></div></div>
+        <div class="card"><div class="card-h"><h2>Revenue by stream</h2><span class="hint" id="strHint">invoiced</span></div><div class="rows" id="streams"></div></div>
+        <div class="card"><div class="card-h"><h2>Top clients</h2><span class="hint" id="clHint">invoiced YTD</span></div><div class="rows" id="topClients"></div></div>
       </div>
     </section>
 
@@ -584,6 +584,8 @@ const PALETTE=["#0E7C5A","#2563EB","#D98A12","#9333EA","#DB2777","#0891B2","#3B1
 let TX=[], txId=0, SHEET_URL="";
 const dstr=(mi,d)=>`${MONTH_YEAR[mi]}-${String(MONTH_NUM[mi]).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 const monthIdx=date=>MONTH_NUM.indexOf(+date.slice(5,7));
+const NOW_FISCAL=(()=>{const i=MONTH_NUM.indexOf(new Date().getMonth()+1);return i<0?2:i;})();
+function ensureActualThru(){if(ACTUAL_THRU<NOW_FISCAL)ACTUAL_THRU=NOW_FISCAL;}
 function J(mi,d,proj,client,stream,handler,cat,desc,amt,status){TX.push({id:++txId,type:"Income",date:dstr(mi,d),proj,client,stream,handler,cat,desc,amt,status});}
 function G(mi,d,proj,client,handler,cat,desc,amt){TX.push({id:++txId,type:"Goods",date:dstr(mi,d),proj,client,stream:"Studio",handler,cat,desc,amt,status:""});}
 function O(mi,d,cat,desc,amt){TX.push({id:++txId,type:"Overhead",date:dstr(mi,d),proj:"",client:"",stream:"Studio",handler:"Other",cat,desc,amt,status:""});}
@@ -691,10 +693,11 @@ function renderChart(){
 }
 function rowsHTML(items,maxv,fmt,colorFn){return items.map(it=>{const v=it.v,pct=maxv?v/maxv*100:0,o=fmt(it);return `<div class="row">${o.av!==null?`<div class="av" style="background:${o.avcol}">${o.av}</div>`:""}<div style="min-width:96px"><div class="who">${o.who}</div>${o.sub?`<div class="meta2">${o.sub}</div>`:""}</div><div class="track"><div class="fillb" data-w="${pct}" style="width:0%;background:${colorFn(it)}"></div></div><div class="amt">${gbp(v)}</div></div>`;}).join("");}
 function animFills(sc){$$(sc+" .fillb").forEach(f=>requestAnimationFrame(()=>requestAnimationFrame(()=>f.style.width=f.dataset.w+"%")));}
-function aggInvoiced(key){const m={};incomeTX().filter(t=>isInv(t.status)).forEach(t=>m[t[key]]=(m[t[key]]||0)+t.amt);return Object.entries(m).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);}
-function renderLeaderboards(){const a=aggInvoiced("handler"),max=a[0]?.v||1,tot=a.reduce((s,x)=>s+x.v,0)||1;$("#lbMini").innerHTML=rowsHTML(a,max,it=>({who:it.k,sub:`${(it.v/tot*100).toFixed(0)}% of invoiced`,av:it.k[0],avcol:colorFor(it.k)}),it=>colorFor(it.k));animFills("#lbMini");}
-function renderStreams(){const a=aggInvoiced("stream"),max=a[0]?.v||1,tot=a.reduce((s,x)=>s+x.v,0)||1;$("#streams").innerHTML=rowsHTML(a,max,it=>({who:it.k,sub:`${(it.v/tot*100).toFixed(0)}% of invoiced`,av:null}),()=> "var(--purple)");animFills("#streams");}
-function renderClients(){const a=aggInvoiced("client").slice(0,6),max=a[0]?.v||1;$("#topClients").innerHTML=rowsHTML(a,max,it=>({who:it.k,sub:"",av:null}),()=> "var(--money)");animFills("#topClients");}
+function aggInvoiced(key){const mset=new Set(periodMonths(PERIOD));const m={};incomeTX().filter(t=>isInv(t.status)&&mset.has(monthIdx(t.date))).forEach(t=>m[t[key]]=(m[t[key]]||0)+t.amt);return Object.entries(m).map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);}
+function periodHint(){return "invoiced · "+PLABEL[PERIOD]();}
+function renderLeaderboards(){const a=aggInvoiced("handler"),max=a[0]?.v||1,tot=a.reduce((s,x)=>s+x.v,0)||1;const h=$("#lbHint");if(h)h.textContent=periodHint();$("#lbMini").innerHTML=a.length?rowsHTML(a,max,it=>({who:it.k,sub:`${(it.v/tot*100).toFixed(0)}% of invoiced`,av:it.k[0],avcol:colorFor(it.k)}),it=>colorFor(it.k)):'<div style="color:var(--faint);font-size:12.5px;padding:8px 2px">Nothing invoiced in this period yet.</div>';animFills("#lbMini");}
+function renderStreams(){const a=aggInvoiced("stream"),max=a[0]?.v||1,tot=a.reduce((s,x)=>s+x.v,0)||1;const h=$("#strHint");if(h)h.textContent=periodHint();$("#streams").innerHTML=a.length?rowsHTML(a,max,it=>({who:it.k,sub:`${(it.v/tot*100).toFixed(0)}% of invoiced`,av:null}),()=> "var(--purple)"):'<div style="color:var(--faint);font-size:12.5px;padding:8px 2px">No invoiced revenue in this period yet.</div>';animFills("#streams");}
+function renderClients(){const a=aggInvoiced("client").slice(0,6),max=a[0]?.v||1;const h=$("#clHint");if(h)h.textContent=periodHint();$("#topClients").innerHTML=a.length?rowsHTML(a,max,it=>({who:it.k,sub:"",av:null}),()=> "var(--money)"):'<div style="color:var(--faint);font-size:12.5px;padding:8px 2px">No invoiced clients in this period yet.</div>';animFills("#topClients");}
 
 /* ---------- jobs ---------- */
 let JF={month:"all",client:"all",handler:"all",status:"all",q:""};
@@ -1296,10 +1299,11 @@ async function cloudStart(){
   try{const {data,error}=await SB.from("app_state").select("data").eq("id",STATE_ID).maybeSingle();
     if(!error&&data&&data.data&&data.data.v===3){applyState(data.data);had=true;}
   }catch(e){}
-  buildFilters();refreshAll();syncControls();
   cloudReady=true;LOADED=true;
-  if(had)lastSyncJSON=JSON.stringify(snapshot());   // adopt the loaded state; suppress immediate re-save
-  doPersist();           // writes a seed row only if nothing was there
+  if(had)lastSyncJSON=JSON.stringify(snapshot());   // remember exactly what the server had
+  ensureActualThru();                                // treat the current month as actuals
+  buildFilters();refreshAll();syncControls();
+  doPersist();           // seeds a row, or saves the advanced boundary, when it differs
   cloudSubscribe();
   flashSaved(true,"Synced");
 }
@@ -1327,6 +1331,7 @@ if(CLOUD){
   SB.auth.getSession().then(({data})=>{if(data&&data.session){showGate(false);cloudStart();}else{showGate(true);setTimeout(()=>{const g=$("#gatePass");if(g)g.focus();},50);}}).catch(()=>showGate(true));
 }else{
   const _restored=loadStateLocal();
+  ensureActualThru();
   refreshAll();syncControls();LOADED=true;
   if(!canSave)flashSaved(false);
   else if(_restored){flashSaved(true,"Restored");setTimeout(()=>flashSaved(true),1400);}
