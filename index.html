@@ -1,5 +1,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Studio Finance">
+<meta name="theme-color" content="#3B1A4F">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
 <title>Ghost · Studio Finance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -151,6 +158,8 @@
   .ltable td,.ltable th{text-align:left; white-space:nowrap}
   .ltable td.r,.ltable th.r{text-align:right}
   .ltable .proj{font-family:"Bricolage Grotesque"; font-weight:600; color:var(--purple)}
+  .inp-note{border:1px solid transparent; border-radius:6px; padding:4px 6px; font-family:inherit; font-size:12px; background:transparent; width:130px; color:var(--muted)}
+  .inp-note:hover{background:#F4F0F8} .inp-note:focus{outline:2px solid var(--purple); background:#fff; color:var(--txt)}
   .pill{display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600}
   .pill.Studio{background:var(--purple-soft); color:var(--purple)} .pill.Events{background:#FBF0DC; color:#8a5a08} .pill.Spaces{background:#E6F1EC; color:var(--money-deep)}
   .st{display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600}
@@ -494,6 +503,7 @@
       <div class="fld"><label>Amount (£) <span class="req">*</span></label><input id="fAmt" type="number" inputmode="numeric" placeholder="0"></div>
       <div class="fld" id="fStatusWrap"><label>Status</label><select id="fStatus"><option>Quoted</option><option>Live</option><option>Complete</option><option selected>Invoiced</option><option>Paid</option></select></div>
     </div>
+    <div class="fld" id="fNotesWrap"><label>Notes / refs <span style="font-weight:400;color:var(--faint)">— PO number, invoice code…</span></label><input id="fNotes" placeholder="e.g. PO 4471 · INV-2026-018"></div>
   </div>
   <div class="sheet-f"><button class="btn btn-ghost" id="cancelSheet">Cancel</button><button class="btn btn-pri" id="saveEntry">Add entry</button></div>
 </aside>
@@ -687,7 +697,20 @@ function buildFilters(){
   $("#fClientF").innerHTML=`<option value="all">All clients</option>`+CLIENTS.map(c=>`<option>${c}</option>`).join("");
   $("#fHandlerF").innerHTML=`<option value="all">All handlers</option>`+TEAM.map(t=>`<option>${t.name}</option>`).join("");
   $("#fMonth").value=JF.month; $("#fClientF").value=JF.client; $("#fHandlerF").value=JF.handler; $("#fStatusF").value=JF.status;
-  $("#monthSel").innerHTML=MONTHS.map((m,i)=>`<option value="${i}">${m} ${MONTH_YEAR[i]}</option>`).join(""); $("#monthSel").value=selMonth;
+  fillMonthSel();
+}
+function fillMonthSel(){
+  const ms=$("#monthSel");if(!ms)return;
+  if(PERIOD==="quarter"){
+    const qn=["Q1 · Apr–Jun","Q2 · Jul–Sep","Q3 · Oct–Dec","Q4 · Jan–Mar"];
+    ms.innerHTML=qn.map((n,qi)=>`<option value="${qi*3}">${n}</option>`).join("");
+    ms.value=quarterOf(selMonth)*3; ms.disabled=false; ms.style.opacity=1;
+  }else if(PERIOD==="year"){
+    ms.innerHTML=`<option>Full year ${CURRENT_FY}</option>`; ms.disabled=true; ms.style.opacity=.55;
+  }else{
+    ms.innerHTML=MONTHS.map((m,i)=>`<option value="${i}">${m} ${MONTH_YEAR[i]}</option>`).join("");
+    ms.value=selMonth; ms.disabled=false; ms.style.opacity=1;
+  }
 }
 function renderJobs(){
   const q=JF.q.toLowerCase();
@@ -702,7 +725,7 @@ function renderJobs(){
   }).sort((a,b)=>a.date<b.date?1:-1);
   const tot=list.reduce((a,t)=>a+(+t.amt||0),0), inv=list.filter(t=>isInv(t.status)).reduce((a,t)=>a+t.amt,0), wip=tot-inv;
   if(!list.length){$("#jobsTable").innerHTML=`<div class="empty"><b>No jobs match</b>Try clearing a filter or the search box.</div>`;return;}
-  const head=`<thead><tr><th>Date</th><th>Proj</th><th>Client</th><th>Description</th><th>Handler</th><th>Stream</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>Date</th><th>Proj</th><th>Client</th><th>Description</th><th>Handler</th><th>Stream</th><th class="r">Amount</th><th>Status</th><th>Notes / refs</th><th></th></tr></thead>`;
   const body=list.map(t=>{
     const d=new Date(t.date), ds=`${String(d.getDate()).padStart(2,"0")} ${MONTHS[(d.getMonth()+9)%12]}`;
     return `<tr>
@@ -712,14 +735,16 @@ function renderJobs(){
       <td><span class="pill ${t.stream}">${t.stream}</span></td>
       <td class="r"><input class="inp-amt" type="number" value="${t.amt}" onchange="editAmt(${t.id},this.value)"></td>
       <td><span class="st ${isInv(t.status)?"inv":"wip"}" title="click row pencil to change">${t.status}</span></td>
+      <td><input class="inp-note" value="${(t.notes||"").replace(/"/g,"&quot;")}" onchange="editNote(${t.id},this.value)" placeholder="PO / invoice…"></td>
       <td style="text-align:right;white-space:nowrap">
         <button class="icon-btn" title="Edit" onclick="openEdit(${t.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
         <button class="icon-btn del" title="Delete" onclick="delTx(${t.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
       </td></tr>`;
   }).join("");
-  const foot=`<tr style="font-weight:700"><td colspan="6">${list.length} job${list.length>1?"s":""} · <span class="st inv">${gbp(inv)} invoiced</span> <span class="st wip">${gbp(wip)} in progress</span></td><td class="r num">${gbp(tot)}</td><td colspan="2"></td></tr>`;
+  const foot=`<tr style="font-weight:700"><td colspan="6">${list.length} job${list.length>1?"s":""} · <span class="st inv">${gbp(inv)} invoiced</span> <span class="st wip">${gbp(wip)} in progress</span></td><td class="r num">${gbp(tot)}</td><td colspan="3"></td></tr>`;
   $("#jobsTable").innerHTML=`<table class="ltable">${head}<tbody>${body}${foot}</tbody></table>`;
 }
+function editNote(id,v){const t=TX.find(x=>x.id===id);if(t){t.notes=v;schedulePersist();}}
 function editAmt(id,v){const t=TX.find(x=>x.id===id);if(t)t.amt=+v||0; refreshAll(); toast("Updated");}
 function delTx(id){const t=TX.find(x=>x.id===id);if(!t)return;TX=TX.filter(x=>x.id!==id); refreshAll(); toast((t.type==="Goods"?"Goods":t.type)+" deleted",{label:"Undo",fn:()=>{TX.push(t);refreshAll();toast("Restored");}});}
 
@@ -946,10 +971,10 @@ function refreshAll(){buildFilters();refreshDash();renderJobs();renderGoods();re
 
 const TITLES={dash:["Dashboard",()=>"Financial year "+CURRENT_FY],jobs:["Jobs",()=>"Every job — filter, search, edit"],goods:["Brought-in goods",()=>"Costs tied to delivering jobs"],over:["Overheads & spends",()=>"One-off running costs"],rec:["Recurring costs",()=>"Fixed monthly — your break-even"],pipe:["Pipeline",()=>"Weighted open opportunities"],team:["Team",()=>"Account handlers — editable"],pnl:["Profit & loss",()=>"Month by month, invoiced basis"],incent:["Staff incentive",()=>"Share of profit for the team"],arch:["Archive",()=>"Year-on-year invoiced revenue"]};
 $("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;VIEW=b.dataset.v;$$("#nav button").forEach(x=>x.classList.toggle("on",x===b));$$(".view").forEach(v=>v.hidden=true);$("#view-"+VIEW).hidden=false;$("#pgTitle").textContent=TITLES[VIEW][0];$("#pgSub").textContent=TITLES[VIEW][1]();});
-$("#period").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;PERIOD=b.dataset.p;$$("#period button").forEach(x=>x.classList.toggle("on",x===b));$("#monthSel").style.opacity=PERIOD==="year"?.45:1;refreshDash();});
+$("#period").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;PERIOD=b.dataset.p;$$("#period button").forEach(x=>x.classList.toggle("on",x===b));fillMonthSel();refreshDash();});
 $("#monthSel").addEventListener("change",e=>{selMonth=+e.target.value;refreshDash();});
 $("#basis").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;BASIS=b.dataset.b;$$("#basis button").forEach(x=>x.classList.toggle("on",x===b));refreshDash();});
-document.addEventListener("click",e=>{const c=e.target.closest&&e.target.closest("#bars .bcol");if(c){selMonth=+c.dataset.mi;if(PERIOD==="year"){PERIOD="month";$$("#period button").forEach(x=>x.classList.toggle("on",x.dataset.p==="month"));}$("#monthSel").value=selMonth;refreshDash();}});
+document.addEventListener("click",e=>{const c=e.target.closest&&e.target.closest("#bars .bcol");if(c){selMonth=+c.dataset.mi;if(PERIOD!=="month"){PERIOD="month";$$("#period button").forEach(x=>x.classList.toggle("on",x.dataset.p==="month"));}fillMonthSel();refreshDash();}});
 
 $("#jSearch").addEventListener("input",e=>{JF.q=e.target.value;renderJobs();});
 $("#fMonth").addEventListener("change",e=>{JF.month=e.target.value;renderJobs();});
@@ -974,8 +999,8 @@ $("#addOver").onclick=()=>{ENTRY="Overhead";openSheet();};
 /* ---------- add / edit sheet ---------- */
 const sheet=$("#sheet"),scrim=$("#scrim"); let ENTRY="Income", editingId=null;
 function buildHandlerSelects(){$("#fHandler").innerHTML=TEAM.map(t=>`<option>${t.name}</option>`).join("");}
-function openSheet(){editingId=null;$("#sheetTitle").textContent="Add entry";$("#saveEntry").textContent="Add entry";setType(ENTRY);buildFields();$("#fDate").value=dstr(selMonth,15);$("#fAmt").value="";$("#fProj").value="";$("#fClient").value="";$("#fDesc").value="";sheet.classList.add("on");scrim.classList.add("on");}
-function openEdit(id){const t=TX.find(x=>x.id===id);if(!t)return;editingId=id;ENTRY=t.type;$("#sheetTitle").textContent="Edit "+(t.type==="Income"?"job":t.type==="Goods"?"goods":"overhead");$("#saveEntry").textContent="Save changes";setType(t.type);buildFields();$("#fDate").value=t.date;$("#fProj").value=t.proj||"";$("#fClient").value=t.client||"";$("#fStream").value=t.stream||"Studio";$("#fHandler").value=t.handler||TEAM[0].name;$("#fCat").value=t.cat||"";$("#fDesc").value=t.desc||"";$("#fAmt").value=t.amt;if(t.type==="Income")$("#fStatus").value=t.status||"Invoiced";sheet.classList.add("on");scrim.classList.add("on");}
+function openSheet(){editingId=null;$("#sheetTitle").textContent="Add entry";$("#saveEntry").textContent="Add entry";setType(ENTRY);buildFields();$("#fDate").value=dstr(selMonth,15);$("#fAmt").value="";$("#fProj").value="";$("#fClient").value="";$("#fDesc").value="";$("#fNotes").value="";sheet.classList.add("on");scrim.classList.add("on");}
+function openEdit(id){const t=TX.find(x=>x.id===id);if(!t)return;editingId=id;ENTRY=t.type;$("#sheetTitle").textContent="Edit "+(t.type==="Income"?"job":t.type==="Goods"?"goods":"overhead");$("#saveEntry").textContent="Save changes";setType(t.type);buildFields();$("#fDate").value=t.date;$("#fProj").value=t.proj||"";$("#fClient").value=t.client||"";$("#fStream").value=t.stream||"Studio";$("#fHandler").value=t.handler||TEAM[0].name;$("#fCat").value=t.cat||"";$("#fDesc").value=t.desc||"";$("#fAmt").value=t.amt;$("#fNotes").value=t.notes||"";if(t.type==="Income")$("#fStatus").value=t.status||"Invoiced";sheet.classList.add("on");scrim.classList.add("on");}
 function closeSheet(){sheet.classList.remove("on");scrim.classList.remove("on");}
 $("#addBtn").onclick=()=>{ENTRY="Income";openSheet();}; $("#closeSheet").onclick=closeSheet; $("#cancelSheet").onclick=closeSheet; scrim.onclick=()=>{closeSheet();closeImport();};
 $("#entryType").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;setType(b.dataset.t);buildFields();});
@@ -985,7 +1010,7 @@ function buildFields(){
   $("#clientList").innerHTML=CLIENTS.map(c=>`<option value="${c}">`).join("");
   const show=(id,on)=>$(id).style.display=on?"":"none";
   const inc=ENTRY==="Income",goods=ENTRY==="Goods",oh=ENTRY==="Overhead";
-  show("#fProjWrap",inc||goods); show("#fClientWrap",!oh); show("#fStreamWrap",!oh); show("#fHandlerWrap",!oh); show("#fStatusWrap",inc);
+  show("#fProjWrap",inc||goods); show("#fClientWrap",!oh); show("#fStreamWrap",!oh); show("#fHandlerWrap",!oh); show("#fStatusWrap",inc); show("#fNotesWrap",inc||goods);
   $("#fProjWrap").querySelector(".req").style.display=inc?"":"none";
   if(inc){$("#fCatLabel").textContent="Work type";$("#fCat").innerHTML=WORKTYPES.map(x=>`<option>${x}</option>`).join("");}
   else if(goods){$("#fCatLabel").textContent="Category";$("#fCat").innerHTML=GOODSCATS.map(x=>`<option>${x}</option>`).join("");}
@@ -998,7 +1023,7 @@ $("#saveEntry").onclick=()=>{
   if(!amt){$("#fAmt").classList.add("bad");$("#fAmt").focus();return;}
   const client=ENTRY==="Overhead"?"":$("#fClient").value.trim();
   if(client&&!CLIENTS.includes(client))CLIENTS.push(client);
-  const rec={type:ENTRY,date:$("#fDate").value||dstr(selMonth,15),proj,client,stream:ENTRY==="Overhead"?"Studio":$("#fStream").value,handler:ENTRY==="Overhead"?"Other":$("#fHandler").value,cat:$("#fCat").value,desc:$("#fDesc").value,amt,status:ENTRY==="Income"?$("#fStatus").value:""};
+  const rec={type:ENTRY,date:$("#fDate").value||dstr(selMonth,15),proj,client,stream:ENTRY==="Overhead"?"Studio":$("#fStream").value,handler:ENTRY==="Overhead"?"Other":$("#fHandler").value,cat:$("#fCat").value,desc:$("#fDesc").value,amt,status:ENTRY==="Income"?$("#fStatus").value:"",notes:(ENTRY==="Overhead"?"":$("#fNotes").value.trim())};
   if(editingId){Object.assign(TX.find(x=>x.id===editingId),rec);toast("Saved");}
   else{rec.id=++txId;TX.push(rec);toast(`${ENTRY==="Goods"?"Goods":ENTRY} added · ${gbp(amt)}`);}
   closeSheet();refreshAll();
@@ -1219,7 +1244,7 @@ function schedulePersist(){if(!LOADED||!canSave)return;clearTimeout(saveT);saveT
 function syncControls(){
   $$("#period button").forEach(x=>x.classList.toggle("on",x.dataset.p===PERIOD));
   $$("#basis button").forEach(x=>x.classList.toggle("on",x.dataset.b===BASIS));
-  const ms=$("#monthSel");if(ms)ms.value=selMonth;
+  fillMonthSel();
   $("#pgSub").textContent="Financial year "+CURRENT_FY;
 }
 function resetData(){
@@ -1231,11 +1256,11 @@ function resetData(){
 
 /* ---------- cloud (shared online) ---------- */
 function applyRemote(rowData){
+  applyState(rowData);                         // always adopt latest data so we never hold/save stale state
+  lastSyncJSON=JSON.stringify(snapshot());
   const ae=document.activeElement;
-  if(ae&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)){pendingRemote=rowData;return;}
-  applyState(rowData);buildFilters();refreshAll();syncControls();
-  lastSyncJSON=JSON.stringify(snapshot());   // we already hold this exact state — don't echo it back
-  toast("Updated by a teammate");
+  if(ae&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)){pendingRemote=true;return;} // just defer the redraw
+  buildFilters();refreshAll();syncControls();toast("Updated by a teammate");
 }
 function cloudSubscribe(){
   try{
@@ -1244,7 +1269,17 @@ function cloudSubscribe(){
         const row=p.new;if(!row||row.editor===clientId||!row.data)return;applyRemote(row.data);
       }).subscribe();
   }catch(e){}
-  document.addEventListener("focusout",()=>{if(pendingRemote){const d=pendingRemote;pendingRemote=null;applyState(d);buildFilters();refreshAll();syncControls();lastSyncJSON=JSON.stringify(snapshot());}});
+  document.addEventListener("focusout",()=>{if(pendingRemote){pendingRemote=false;buildFilters();refreshAll();syncControls();}});
+}
+function flushSave(){
+  const ae=document.activeElement;
+  if(ae&&ae.blur&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName))ae.blur();  // commit whatever's being typed
+  clearTimeout(saveT);
+  if(LOADED&&canSave)doPersist();
+}
+if(typeof document!=="undefined"){
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushSave();});
+  window.addEventListener("pagehide",flushSave);
 }
 async function cloudStart(){
   LOADED=false;let had=false;
