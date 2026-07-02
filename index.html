@@ -586,6 +586,7 @@ const dstr=(mi,d)=>`${MONTH_YEAR[mi]}-${String(MONTH_NUM[mi]).padStart(2,"0")}-$
 const monthIdx=date=>MONTH_NUM.indexOf(+date.slice(5,7));
 const NOW_FISCAL=(()=>{const i=MONTH_NUM.indexOf(new Date().getMonth()+1);return i<0?2:i;})();
 function ensureActualThru(){if(ACTUAL_THRU<NOW_FISCAL)ACTUAL_THRU=NOW_FISCAL;}
+selMonth=NOW_FISCAL;   // dashboard opens on the current month
 function J(mi,d,proj,client,stream,handler,cat,desc,amt,status){TX.push({id:++txId,type:"Income",date:dstr(mi,d),proj,client,stream,handler,cat,desc,amt,status});}
 function G(mi,d,proj,client,handler,cat,desc,amt){TX.push({id:++txId,type:"Goods",date:dstr(mi,d),proj,client,stream:"Studio",handler,cat,desc,amt,status:""});}
 function O(mi,d,cat,desc,amt){TX.push({id:++txId,type:"Overhead",date:dstr(mi,d),proj:"",client:"",stream:"Studio",handler:"Other",cat,desc,amt,status:""});}
@@ -642,8 +643,9 @@ function periodActualInv(){return periodMonths(PERIOD).filter(mi=>mi<=ACTUAL_THR
 function renderKPIs(){
   const d=pnl(PERIOD), pct=d.tgt?d.rev/d.tgt:0;
   const fc=isForecastPeriod(), hasF=periodHasForecast(), mix=hasF&&!fc, proj=hasF, actInv=periodActualInv();
+  const gap=d.rev-d.tgt;
   const revLab=fc?"Forecast revenue":(mix?"Projected revenue":(BASIS==="invoiced"?"Invoiced revenue":"Revenue (all work)"));
-  const revMeta=mix?`${gbp(actInv)} invoiced · rest forecast`:(fc?"your forecast figures":`${(pct*100).toFixed(0)}% of target`);
+  const revMeta=mix?`${gbp(actInv)} invoiced · rest forecast`:(fc?"your forecast figures":(d.tgt?`${gbp(Math.abs(gap))} ${gap>=0?"ahead of":"under"} target`:"no target set"));
   const tiles=[
     {lab:revLab,dot:"var(--purple)",val:gbp(d.rev),meta:revMeta,chip:proj?null:(pct>=1?"up":"down"),cv:proj?null:`${pct>=1?"+":""}${((pct-1)*100).toFixed(0)}%`},
     {lab:"Work in progress",dot:"var(--signal)",val:gbp(d.wip),meta:d.wip>0?"quoted / live · not invoiced":"nothing outstanding"},
@@ -1222,7 +1224,7 @@ const STATE_ID="ghost";
 const CLOUD=!!(SB_CONFIG.url&&SB_CONFIG.key&&typeof window!=="undefined"&&window.supabase);
 let SB=null, cloudReady=false, clientId=Math.random().toString(36).slice(2), pendingRemote=null, lastSyncJSON="";
 
-function snapshot(){return {v:3,TX,txId,TEAM,CLIENTS,RECURRING,recId,PIPELINE,dealId,STAGES,ARCHIVES,TARGET,FORECAST,COS_PCT,INCENTIVE_PCT,ACTUAL_THRU,selMonth,BASIS,PERIOD,CURRENT_FY,MONTH_YEAR,SHEET_URL};}
+function snapshot(){return {v:3,TX,txId,TEAM,CLIENTS,RECURRING,recId,PIPELINE,dealId,STAGES,ARCHIVES,TARGET,FORECAST,COS_PCT,INCENTIVE_PCT,ACTUAL_THRU,CURRENT_FY,MONTH_YEAR,SHEET_URL};}
 function flashSaved(ok,label){
   const p=$("#savedPill");if(!p)return;
   if(ok){p.classList.remove("off");$("#savedTxt").textContent=label||(CLOUD?"Synced":"Saved");p.classList.add("pulse");setTimeout(()=>p.classList.remove("pulse"),250);}
@@ -1232,7 +1234,7 @@ function applyState(s){
   if(!s||s.v!==3)return false;
   TX=s.TX||[];txId=s.txId||0;TEAM=s.TEAM||TEAM;CLIENTS=s.CLIENTS||[];RECURRING=s.RECURRING||RECURRING;recId=s.recId||recId;
   PIPELINE=s.PIPELINE||[];dealId=s.dealId||dealId;STAGES=(s.STAGES&&s.STAGES.length)?s.STAGES:STAGES;ARCHIVES=s.ARCHIVES||[];TARGET=s.TARGET||TARGET;FORECAST=s.FORECAST||FORECAST;
-  COS_PCT=(s.COS_PCT??COS_PCT);INCENTIVE_PCT=(s.INCENTIVE_PCT??INCENTIVE_PCT);ACTUAL_THRU=(s.ACTUAL_THRU??ACTUAL_THRU);selMonth=(s.selMonth??selMonth);BASIS=s.BASIS||BASIS;PERIOD=s.PERIOD||PERIOD;
+  COS_PCT=(s.COS_PCT??COS_PCT);INCENTIVE_PCT=(s.INCENTIVE_PCT??INCENTIVE_PCT);ACTUAL_THRU=(s.ACTUAL_THRU??ACTUAL_THRU);
   CURRENT_FY=s.CURRENT_FY||CURRENT_FY;MONTH_YEAR=s.MONTH_YEAR||MONTH_YEAR;SHEET_URL=s.SHEET_URL||"";
   return true;
 }
