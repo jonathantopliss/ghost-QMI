@@ -982,7 +982,7 @@ function refreshDash(){renderKPIs();renderVerdict();renderFlow();renderChart();r
 function refreshAll(){buildFilters();refreshDash();renderJobs();renderGoods();renderOver();renderTeam();renderPipe();renderArch();schedulePersist();}
 
 const TITLES={dash:["Dashboard",()=>"Financial year "+CURRENT_FY],jobs:["Jobs",()=>"Every job — filter, search, edit"],goods:["Brought-in goods",()=>"Costs tied to delivering jobs"],over:["Overheads & spends",()=>"One-off running costs"],rec:["Recurring costs",()=>"Fixed monthly — your break-even"],pipe:["Pipeline",()=>"Weighted open opportunities"],team:["Team",()=>"Account handlers — editable"],pnl:["Profit & loss",()=>"Month by month, invoiced basis"],incent:["Staff incentive",()=>"Share of profit for the team"],arch:["Archive",()=>"Year-on-year invoiced revenue"]};
-$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;VIEW=b.dataset.v;$$("#nav button").forEach(x=>x.classList.toggle("on",x===b));$$(".view").forEach(v=>v.hidden=true);$("#view-"+VIEW).hidden=false;$("#pgTitle").textContent=TITLES[VIEW][0];$("#pgSub").textContent=TITLES[VIEW][1]();closeNav();});
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;flushSave();VIEW=b.dataset.v;$$("#nav button").forEach(x=>x.classList.toggle("on",x===b));$$(".view").forEach(v=>v.hidden=true);$("#view-"+VIEW).hidden=false;$("#pgTitle").textContent=TITLES[VIEW][0];$("#pgSub").textContent=TITLES[VIEW][1]();closeNav();});
 function openNav(){const r=$(".rail");if(r)r.classList.add("open");const s=$("#navScrim");if(s)s.classList.add("on");}
 function closeNav(){const r=$(".rail");if(r)r.classList.remove("open");const s=$("#navScrim");if(s)s.classList.remove("on");}
 {const hb=$("#hambBtn");if(hb)hb.onclick=openNav;const ns=$("#navScrim");if(ns)ns.onclick=closeNav;}
@@ -1255,7 +1255,7 @@ function doPersist(){
   try{localStorage.setItem(LS_KEY,JSON.stringify(snapshot()));canSave=true;flashSaved(true);}
   catch(e){canSave=false;flashSaved(false);}
 }
-function schedulePersist(){if(!LOADED||!canSave)return;clearTimeout(saveT);saveT=setTimeout(doPersist,300);}
+function schedulePersist(){if(!LOADED||!canSave)return;clearTimeout(saveT);saveT=setTimeout(()=>{saveT=null;doPersist();},300);}
 function syncControls(){
   $$("#period button").forEach(x=>x.classList.toggle("on",x.dataset.p===PERIOD));
   $$("#basis button").forEach(x=>x.classList.toggle("on",x.dataset.b===BASIS));
@@ -1287,25 +1287,47 @@ function cloudSubscribe(){
   document.addEventListener("focusout",()=>{if(pendingRemote){pendingRemote=false;buildFilters();refreshAll();syncControls();}});
 }
 function flushSave(){
-  const ae=document.activeElement;
-  if(ae&&ae.blur&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName))ae.blur();  // commit whatever's being typed
-  clearTimeout(saveT);
-  if(LOADED&&canSave)doPersist();
+  const ae=document.activeElement, editing=ae&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName);
+  if(!editing && !saveT) return;                 // nothing pending — never overwrite with a background save
+  if(editing && ae.blur) ae.blur();              // commit whatever's being typed
+  clearTimeout(saveT); saveT=null;
+  if(LOADED&&canSave&&(!CLOUD||cloudReady)) doPersist();
+}
+async function cloudResync(){
+  if(!CLOUD||!cloudReady||!SB) return;
+  const ae=document.activeElement; if(ae&&/INPUT|SELECT|TEXTAREA/.test(ae.tagName)) return; // don't disrupt editing
+  const before=JSON.stringify(snapshot());
+  try{const {data,error}=await SB.from("app_state").select("data").eq("id",STATE_ID).maybeSingle();
+    if(error||!data||!data.data||data.data.v!==3) return;
+    applyState(data.data);
+    const after=JSON.stringify(snapshot());
+    lastSyncJSON=after;
+    if(after!==before){buildFilters();refreshAll();syncControls();}
+  }catch(e){}
 }
 if(typeof document!=="undefined"){
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushSave();});
+  document.addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"?flushSave():cloudResync();});
   window.addEventListener("pagehide",flushSave);
 }
 async function cloudStart(){
-  LOADED=false;let had=false;
+  LOADED=false;let had=false,loadOk=false;
   try{const {data,error}=await SB.from("app_state").select("data").eq("id",STATE_ID).maybeSingle();
-    if(!error&&data&&data.data&&data.data.v===3){applyState(data.data);had=true;}
-  }catch(e){}
+    if(error) throw error;
+    loadOk=true;
+    if(data&&data.data&&data.data.v===3){applyState(data.data);had=true;}
+  }catch(e){loadOk=false;}
+  if(!loadOk){
+    // Couldn't read the shared data (e.g. project waking from sleep). Do NOT overwrite it with defaults.
+    flashSaved(false);
+    toast("Reconnecting to shared data…");
+    setTimeout(()=>{if(!cloudReady)cloudStart();},4000);   // auto-retry (free-tier projects wake on access)
+    return;
+  }
   cloudReady=true;LOADED=true;
   if(had)lastSyncJSON=JSON.stringify(snapshot());   // remember exactly what the server had
   ensureActualThru();                                // treat the current month as actuals
   buildFilters();refreshAll();syncControls();
-  doPersist();           // seeds a row, or saves the advanced boundary, when it differs
+  doPersist();           // seeds a row only if truly empty, or saves the advanced boundary
   cloudSubscribe();
   flashSaved(true,"Synced");
 }
